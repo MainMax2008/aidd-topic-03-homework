@@ -1,0 +1,169 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>Мой портфель</title>
+{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Мой портфель</h2>
+        <a href="{% url 'dashboard:portfolio_transactions' %}" class="btn btn-outline-secondary">
+            История сделок
+        </a>
+    </div>
+
+    <!-- Сводная информация -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Баланс</h6>
+                    <p class="card-text">{{ balance }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Стоимость позиций</h6>
+                    <p class="card-text">{{ positions_value }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Общая стоимость</h6>
+                    <p class="card-text">{{ total_value }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Итоговый PnL</h6>
+                    <p class="card-text">
+                    <span class="badge {% if total_pnl >= 0 %}badge-success{% else %}badge-danger{% endif %} p-2">
+                        {{ total_pnl }}
+                    </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Открытые позиции -->
+    <h4>Открытые позиции</h4>
+    {% if positions %}
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">Тикер</th>
+                <th scope="col">Название</th>
+                <th scope="col">Количество</th>
+                <th scope="col">Средняя цена</th>
+                <th scope="col">Текущая цена</th>
+                <th scope="col">Стоимость</th>
+                <th scope="col">PnL</th>
+                <th scope="col">Действия</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for position in positions %}
+                <tr>
+                    <td><a href="{% url 'dashboard:detail' position.share.id %}">{{ position.share.ticker }}</a></td>
+                    <td>{{ position.share.name }}</td>
+                    <td>{{ position.quantity }}</td>
+                    <td>{{ position.average_price }}</td>
+                    <td>{{ position.current_price }}</td>
+                    <td>{{ position.current_value }}</td>
+                    <td>
+                    <span class="badge {% if position.pnl >= 0 %}badge-success{% else %}badge-danger{% endif %}">
+                        {{ position.pnl }}
+                    </span>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success btn-sm"
+                                data-toggle="modal" data-target="#buyModal{{ position.share.id }}">
+                            Купить
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm"
+                                data-toggle="modal" data-target="#sellModal{{ position.share.id }}">
+                            Продать
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- Модальное окно покупки -->
+                <div class="modal fade" id="buyModal{{ position.share.id }}" tabindex="-1"
+                     role="dialog" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <form method="post" action="{% url 'dashboard:portfolio' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="buy">
+                                <input type="hidden" name="share_id" value="{{ position.share.id }}">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Покупка {{ position.share.ticker }}</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="form-group">
+                                        <label for="buyQuantity{{ position.share.id }}">Количество акций</label>
+                                        <input type="number" class="form-control"
+                                               id="buyQuantity{{ position.share.id }}"
+                                               name="quantity" min="1" value="1" required>
+                                    </div>
+                                    <p class="text-muted">Текущая цена: {{ position.current_price }}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                    <button type="submit" class="btn btn-success">Купить</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Модальное окно продажи -->
+                <div class="modal fade" id="sellModal{{ position.share.id }}" tabindex="-1"
+                     role="dialog" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <form method="post" action="{% url 'dashboard:portfolio' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="sell">
+                                <input type="hidden" name="share_id" value="{{ position.share.id }}">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Продажа {{ position.share.ticker }}</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="form-group">
+                                        <label for="sellQuantity{{ position.share.id }}">Количество акций</label>
+                                        <input type="number" class="form-control"
+                                               id="sellQuantity{{ position.share.id }}"
+                                               name="quantity" min="1" max="{{ position.quantity }}"
+                                               value="1" required>
+                                    </div>
+                                    <p class="text-muted">В наличии: {{ position.quantity }}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                    <button type="submit" class="btn btn-danger">Продать</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>У вас пока нет открытых позиций. Купите акции и они появятся здесь.</p>
+    {% endif %}
+{% endblock %}

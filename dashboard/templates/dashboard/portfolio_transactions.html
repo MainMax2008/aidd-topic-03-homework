@@ -1,0 +1,71 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+    <title>История сделок</title>
+{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>История сделок</h2>
+        <a href="{% url 'dashboard:portfolio' %}" class="btn btn-outline-secondary">
+            Назад в портфель
+        </a>
+    </div>
+
+    {% if transaction_list %}
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">Дата</th>
+                <th scope="col">Тип</th>
+                <th scope="col">Тикер</th>
+                <th scope="col">Количество</th>
+                <th scope="col">Цена</th>
+                <th scope="col">Сумма</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for transaction in transaction_list %}
+                <tr>
+                    <td>{{ transaction.created_at }}</td>
+                    <td>
+                        {% if transaction.transaction_type == 'BUY' %}
+                            <span class="badge badge-success">Покупка</span>
+                        {% else %}
+                            <span class="badge badge-danger">Продажа</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ transaction.share.ticker }}</td>
+                    <td>{{ transaction.quantity }}</td>
+                    <td>{{ transaction.price }}</td>
+                    <td>{{ transaction.total_amount }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="btn-group" role="group" aria-label="Item pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
+            {% endif %}
+
+            {% for page_number in page_obj.paginator.page_range %}
+                {% if page_obj.number == page_number %}
+                    <button class="btn btn-outline-primary active">
+                        <span>{{ page_number }} <span class="sr-only">(current)</span></span>
+                    </button>
+                {% else %}
+                    <a href="?page={{ page_number }}" class="btn btn-outline-primary">
+                        {{ page_number }}
+                    </a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <p>Сделок пока нет.</p>
+    {% endif %}
+{% endblock %}
