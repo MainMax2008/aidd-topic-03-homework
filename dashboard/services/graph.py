@@ -17,7 +17,8 @@ def get_graph(share):
             interval=CandleInterval.CANDLE_INTERVAL_DAY,
         ):
             x_data.append(candle.time.date())
-            y_data.append(candle.close.units)
+            # units + nano для сохранения точности (nano = 1e-9 от единицы)
+            y_data.append(candle.close.units + candle.close.nano / 1_000_000_000)
     plot_div = plot(
         [
             Scatter(

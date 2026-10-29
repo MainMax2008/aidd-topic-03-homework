@@ -13,6 +13,7 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     "add-every-5-min": {
         "task": "dashboard.tasks.update_last_price",
-        "schedule": 10.0,
+        # Каждые 5 минут (300 секунд), как следует из имени задачи
+        "schedule": 300.0,
     },
 }

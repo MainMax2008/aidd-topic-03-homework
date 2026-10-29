@@ -1,13 +1,21 @@
 import logging
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = ""
+# Load .env file if it exists
+load_dotenv(BASE_DIR / ".env")
 
-DEBUG = True
+SECRET_KEY = os.getenv(
+    "SECRET_KEY", "django-insecure-dev-key-change-me-in-production"
+)
 
-ALLOWED_HOSTS = []
+DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
+
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
 
 
 INSTALLED_APPS = [
@@ -18,7 +26,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "crispy_forms",
-    "crispy_bootstrap3",
+    "crispy_bootstrap5",
     "dashboard",
     "user",
     "rest_framework",
@@ -32,6 +40,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 100,
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ],
 }
 
 LOGGING = {
@@ -88,20 +99,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "investing",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
-        "HOST": "localhost",
-        "PORT": "5432",
+# Database: PostgreSQL if env vars are set, otherwise SQLite for local dev
+if os.getenv("DB_ENGINE"):
+    DATABASES = {
+        "default": {
+            "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.postgresql"),
+            "NAME": os.getenv("DB_NAME", "investing"),
+            "USER": os.getenv("DB_USER", "postgres"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "postgres"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -131,14 +147,16 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-TINKOFF_TOKEN = ""
+TINKOFF_TOKEN = os.getenv("TINKOFF_TOKEN", "")
 
 """Celery Configuration Options"""
-CELERY_TIMEZONE = "Europe/Moscow"
+CELERY_TIMEZONE = os.getenv("CELERY_TIMEZONE", "Europe/Moscow")
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
-# CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672'
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = os.getenv(
+    "CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/0"
+)
 
 """Debug Celery"""
 CELERY_TASK_ALWAYS_EAGER = False

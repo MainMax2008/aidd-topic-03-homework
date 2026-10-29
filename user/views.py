@@ -10,18 +10,30 @@ class AuthView(View):
 
     @staticmethod
     def get(request):
-        return render(request, "user/auth.html", {"form": AuthForm})
+        return render(request, "user/auth.html", {"form": AuthForm()})
 
     @staticmethod
     def post(request):
         form = AuthForm(request.POST)
-        user = authenticate(
-            request, username=form.data["email"].lower(), password=form.data["password"]
-        )
+        if form.is_valid():
+            user = authenticate(
+                request,
+                username=form.cleaned_data["email"].lower(),
+                password=form.cleaned_data["password"],
+            )
 
-        if user is not None:
-            login(request, user)
-            return redirect("dashboard:index")
+            if user is not None:
+                login(request, user)
+                return redirect("dashboard:index")
+            else:
+                return render(
+                    request,
+                    "user/auth.html",
+                    {
+                        "form": form,
+                        "error": "Неверный логин или пароль! Повторите попытку.",
+                    },
+                )
         else:
             return render(
                 request,
@@ -38,7 +50,7 @@ class RegistrationView(View):
 
     @staticmethod
     def get(request):
-        return render(request, "user/registration.html", {"form": RegistrationForm})
+        return render(request, "user/registration.html", {"form": RegistrationForm()})
 
     @staticmethod
     def post(request):
@@ -48,10 +60,15 @@ class RegistrationView(View):
             login(request, user)
             return redirect("dashboard:index")
         else:
+            # Собираем все ошибки формы без риска IndexError
+            all_errors = []
+            for field_errors in form.errors.values():
+                all_errors.extend(field_errors)
+            error_message = all_errors[0] if all_errors else "Ошибка регистрации"
             return render(
                 request,
                 "user/registration.html",
-                {"form": form, "error": form.errors["__all__"].data[0].message},
+                {"form": form, "error": error_message},
             )
 
 
