@@ -6,10 +6,13 @@
 
     <div>
         {{ form.email }}
+        {{ form.email.errors }}
     </div>
     <div>
         {{ form.password }}
+        {{ form.password.errors }}
     </div>
+    {{ form.non_field_errors }}
     <div>
         {{ error }}
     </div>

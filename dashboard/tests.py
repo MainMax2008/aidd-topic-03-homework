@@ -1,12 +1,19 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient, APITestCase
 
 from dashboard.models import Share
 
 
 class DashboardTests(APITestCase):
     def setUp(self) -> None:
+        self.user = get_user_model().objects.create_user(
+            username="api-user", password="test-password"
+        )
+        self.auth_client = APIClient()
+        self.auth_client.force_authenticate(user=self.user)
+
         self.apple_share = Share.objects.create(
             figi="BBG000B9XRY4",
             isin="US0378331005",
@@ -33,6 +40,10 @@ class DashboardTests(APITestCase):
         response = self.client.get(reverse("dashboard:index"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_share_detail_missing_returns_not_found(self):
+        response = self.client.get(reverse("dashboard:detail", args=[999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_share_list(self):
         response = self.client.get("/api/v1/shares/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -58,7 +69,7 @@ class DashboardTests(APITestCase):
     def test_share_update(self):
         response = self.client.get("/api/v1/shares/")
         share_detail = response.json().get("results")[0]
-        response = self.client.put(
+        response = self.auth_client.put(
             f"/api/v1/shares/{share_detail['id']}/",
             {
                 "id": share_detail["id"],
@@ -78,7 +89,7 @@ class DashboardTests(APITestCase):
     def test_share_update_invalid(self):
         response = self.client.get("/api/v1/shares/")
         share_detail = response.json().get("results")[0]
-        response = self.client.put(
+        response = self.auth_client.put(
             f"/api/v1/shares/{share_detail['id']}/",
             {
                 "figi": self.apple_share.figi,
@@ -89,7 +100,7 @@ class DashboardTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_share_create(self):
-        response = self.client.post(
+        response = self.auth_client.post(
             "/api/v1/shares/", self.second_company, format="json"
         )
 
@@ -103,7 +114,7 @@ class DashboardTests(APITestCase):
         self.assertEqual(len(response.data["results"]), 2)
 
     def test_share_create_invalid(self):
-        response = self.client.post(
+        response = self.auth_client.post(
             "/api/v1/shares/", {"figi": "BBG000B9XRY5"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -111,12 +122,16 @@ class DashboardTests(APITestCase):
     def test_share_delete(self):
         response = self.client.get("/api/v1/shares/")
         share_detail = response.json().get("results")[0]
-        response = self.client.delete(f"/api/v1/shares/{share_detail['id']}/")
+        response = self.auth_client.delete(f"/api/v1/shares/{share_detail['id']}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         response = self.client.get("/api/v1/shares/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 0)
 
     def test_share_delete_invalid(self):
-        response = self.client.delete("/api/v1/shares/3/")
+        response = self.auth_client.delete("/api/v1/shares/3/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_anonymous_cannot_modify_shares(self):
+        response = self.client.post("/api/v1/shares/", self.second_company, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

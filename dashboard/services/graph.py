@@ -2,13 +2,13 @@ from datetime import timedelta
 
 from plotly.graph_objs import Scatter
 from plotly.offline import plot
-from tinkoff.invest import CandleInterval, Client
-from tinkoff.invest.utils import now
-
 from config.settings import TINKOFF_TOKEN
 
 
 def get_graph(share):
+    from tinkoff.invest import CandleInterval, Client
+    from tinkoff.invest.utils import now
+
     with Client(TINKOFF_TOKEN) as client:
         x_data, y_data = [], []
         for candle in client.get_all_candles(
@@ -16,8 +16,10 @@ def get_graph(share):
             from_=now() - timedelta(days=180),
             interval=CandleInterval.CANDLE_INTERVAL_DAY,
         ):
+            if candle.close is None:
+                continue
             x_data.append(candle.time.date())
-            y_data.append(candle.close.units)
+            y_data.append(candle.close.units + candle.close.nano / 10**9)
     plot_div = plot(
         [
             Scatter(
