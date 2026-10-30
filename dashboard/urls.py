@@ -22,5 +22,7 @@ urlpatterns = [
     path("portfolio/", portfolio_view, name="portfolio"),
     path("portfolio/buy/", portfolio_buy_view, name="portfolio-buy"),
     path("portfolio/sell/", portfolio_sell_view, name="portfolio-sell"),
+    path("portfolio/buy/<int:share_id>/", portfolio_buy_view, name="portfolio_buy"),
+    path("portfolio/sell/<int:share_id>/", portfolio_sell_view, name="portfolio_sell"),
     path("api/", include("dashboard.api.urls")),
 ]

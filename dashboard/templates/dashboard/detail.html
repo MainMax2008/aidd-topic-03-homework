@@ -5,12 +5,25 @@
 {% endblock %}
 
 {% block content %}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}" role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
     <div class="row">
     <div class="col3"></div>
     <div class="col3">
         Инструмент: {{ share.name }} <br>
         Текущая цена: {{ share.last_price }} {{ share.currency }} <br>
         Время последнего обновления: {{ share.updated_at }}
+        {% if user.is_authenticated %}
+            <form method="post" action="{% url 'dashboard:portfolio_buy' share.pk %}" class="mt-3">
+                {% csrf_token %}
+                <label for="buy-quantity" class="form-label">Количество</label>
+                <input id="buy-quantity" class="form-control mb-2" type="number" name="quantity" min="1" value="1" required>
+                <button type="submit" class="btn btn-primary">Купить в портфель</button>
+            </form>
+        {% endif %}
     </div>
     <div class="col3"></div>
     </div>

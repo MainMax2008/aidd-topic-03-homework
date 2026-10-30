@@ -99,11 +99,52 @@ class PortfolioServiceTests(TestCase):
 
 
 class PortfolioWebTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="portfolio-web-user", password="test-password"
+        )
+        self.share = create_share("WEB", 10.5)
+
     def test_portfolio_requires_login(self):
         response = self.client.get(reverse("dashboard:portfolio"))
         self.assertEqual(response.status_code, 302)
         expected_url = f"{reverse('user:auth')}?next={reverse('dashboard:portfolio')}"
         self.assertRedirects(response, expected_url)
+
+    def test_portfolio_displays_summary_and_positions(self):
+        self.client.force_login(self.user)
+        buy_share(self.user, self.share.pk, 2)
+
+        response = self.client.get(reverse("dashboard:portfolio"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Общий капитал")
+        self.assertContains(response, "WEB")
+        self.assertContains(response, "21.00")
+
+    def test_share_trade_routes_buy_and_sell(self):
+        self.client.force_login(self.user)
+        buy_url = reverse("dashboard:portfolio_buy", args=[self.share.pk])
+        sell_url = reverse("dashboard:portfolio_sell", args=[self.share.pk])
+
+        buy_response = self.client.post(buy_url, {"quantity": 2})
+
+        self.assertRedirects(
+            buy_response,
+            reverse("dashboard:detail", args=[self.share.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(Position.objects.get().quantity, 2)
+
+        sell_response = self.client.post(sell_url, {"quantity": 1})
+
+        self.assertRedirects(
+            sell_response,
+            reverse("dashboard:detail", args=[self.share.pk]),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(Position.objects.get().quantity, 1)
+        self.assertEqual(PortfolioTransaction.objects.count(), 2)
 
 
 class PortfolioApiTests(APITestCase):

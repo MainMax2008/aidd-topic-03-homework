@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -32,10 +31,11 @@ class Portfolio(models.Model):
         related_name="portfolio",
     )
     balance = models.DecimalField(
-        max_digits=12,
+        max_digits=14,
         decimal_places=2,
         default=Decimal("100000.00"),
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Портфель пользователя {self.user_id}"
@@ -47,19 +47,23 @@ class Position(models.Model):
         on_delete=models.CASCADE,
         related_name="positions",
     )
-    share = models.ForeignKey(Share, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    average_buy_price = models.DecimalField(max_digits=10, decimal_places=2)
+    share = models.ForeignKey(
+        Share,
+        on_delete=models.CASCADE,
+        related_name="positions",
+    )
+    quantity = models.PositiveIntegerField(default=0)
+    average_buy_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=("portfolio", "share"),
                 name="unique_portfolio_share_position",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(quantity__gt=0),
-                name="position_quantity_positive",
             ),
         ]
 
@@ -79,8 +83,9 @@ class PortfolioTransaction(models.Model):
     )
     share = models.ForeignKey(Share, on_delete=models.CASCADE)
     transaction_type = models.CharField(max_length=4, choices=Type.choices)
-    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

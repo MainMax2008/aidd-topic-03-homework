@@ -85,21 +85,26 @@ def portfolio_view(request):
     )
 
 
-def _trade_view(request, trade_function, action):
-    form = PortfolioTradeForm(request.POST)
+def _trade_view(request, trade_function, action, share_id=None):
+    trade_data = request.POST.copy()
+    if share_id is not None:
+        trade_data["share"] = share_id
+    form = PortfolioTradeForm(trade_data)
     if not form.is_valid():
-        messages.error(request, "Проверьте введенные данные сделки.")
-        context = _portfolio_context(
-            request.user,
-            buy_form=form if action == "покупка" else None,
-            sell_form=form if action == "продажа" else None,
+        for field_errors in form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+        destination = (
+            redirect("dashboard:detail", pk=share_id)
+            if share_id is not None
+            else redirect("dashboard:portfolio")
         )
-        return render(request, "dashboard/portfolio.html", context, status=400)
+        return destination
 
     try:
         trade_function(
             request.user,
-            form.cleaned_data["share"].pk,
+            share_id or form.cleaned_data["share"].pk,
             form.cleaned_data["quantity"],
         )
     except ValidationError as error:
@@ -107,16 +112,18 @@ def _trade_view(request, trade_function, action):
             messages.error(request, error_message)
     else:
         messages.success(request, f"Операция: {action} успешно выполнена.")
+    if share_id is not None:
+        return redirect("dashboard:detail", pk=share_id)
     return redirect("dashboard:portfolio")
 
 
 @login_required(login_url="user:auth")
 @require_POST
-def portfolio_buy_view(request):
-    return _trade_view(request, buy_share, "покупка")
+def portfolio_buy_view(request, share_id=None):
+    return _trade_view(request, buy_share, "покупка", share_id)
 
 
 @login_required(login_url="user:auth")
 @require_POST
-def portfolio_sell_view(request):
-    return _trade_view(request, sell_share, "продажа")
+def portfolio_sell_view(request, share_id=None):
+    return _trade_view(request, sell_share, "продажа", share_id)
