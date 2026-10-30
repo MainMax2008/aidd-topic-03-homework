@@ -1,0 +1,137 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+<title>Виртуальный портфель</title>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4">Виртуальный портфель</h1>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}" role="alert">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+{% if not prices_complete %}
+    <div class="alert alert-warning" role="alert">
+        Для {{ unpriced_positions }} позиции(й) нет актуальной цены. Рыночная стоимость и доходность рассчитаны частично.
+    </div>
+{% endif %}
+
+<div class="table-responsive mb-4">
+    <table class="table table-bordered text-center align-middle">
+        <thead class="table-light">
+            <tr>
+                <th scope="col">Доступный баланс</th>
+                <th scope="col">Рыночная стоимость акций</th>
+                <th scope="col">Общая стоимость активов</th>
+                <th scope="col">Нереализованный PnL</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ balance|floatformat:2 }} ₽</td>
+                <td>{{ market_value|floatformat:2 }}</td>
+                <td>{{ total_assets|floatformat:2 }}</td>
+                <td class="{% if total_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ total_pnl|floatformat:2 }} ₽ ({{ total_pnl_percent|floatformat:2 }}%)
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-6">
+        <h2 class="h5">Покупка</h2>
+        <form method="post" action="{% url 'dashboard:portfolio-buy' %}">
+            {% csrf_token %}
+            {% for field in buy_form %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Купить</button>
+        </form>
+    </div>
+    <div class="col-12 col-lg-6">
+        <h2 class="h5">Продажа</h2>
+        <form method="post" action="{% url 'dashboard:portfolio-sell' %}">
+            {% csrf_token %}
+            {% for field in sell_form %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-outline-primary">Продать</button>
+        </form>
+    </div>
+</div>
+
+<h2 class="h5 mt-4">Открытые позиции</h2>
+<div class="table-responsive mb-4">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th scope="col">Тикер</th>
+                <th scope="col">Название</th>
+                <th scope="col">Количество</th>
+                <th scope="col">Средняя цена</th>
+                <th scope="col">Текущая цена</th>
+                <th scope="col">Текущая стоимость</th>
+                <th scope="col">PnL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in positions %}
+                <tr>
+                    <td>{{ item.share.ticker }}</td>
+                    <td>{{ item.share.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.average_buy_price|floatformat:2 }} {{ item.share.currency }}</td>
+                    <td>{% if item.current_price is not None %}{{ item.current_price|floatformat:2 }} {{ item.share.currency }}{% else %}Нет данных{% endif %}</td>
+                    <td>{% if item.market_value is not None %}{{ item.market_value|floatformat:2 }} {{ item.share.currency }}{% else %}Нет данных{% endif %}</td>
+                    <td class="{% if item.pnl is not None and item.pnl >= 0 %}text-success{% elif item.pnl is not None %}text-danger{% endif %}">
+                        {% if item.pnl is not None %}{{ item.pnl|floatformat:2 }} {{ item.share.currency }} ({{ item.pnl_percent|floatformat:2 }}%){% else %}Нет данных{% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted">Открытых позиций пока нет</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2 class="h5 mt-4">Последние операции</h2>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Дата</th>
+                <th scope="col">Операция</th>
+                <th scope="col">Тикер</th>
+                <th scope="col">Количество</th>
+                <th scope="col">Цена</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>{{ transaction.get_transaction_type_display }}</td>
+                    <td>{{ transaction.share.ticker }}</td>
+                    <td>{{ transaction.quantity }}</td>
+                    <td>{{ transaction.price|floatformat:2 }} {{ transaction.share.currency }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted">Операций пока нет</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

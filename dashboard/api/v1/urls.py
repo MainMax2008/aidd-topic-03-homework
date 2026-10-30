@@ -1,5 +1,9 @@
 from django.urls import include, path
 
+from .portfolio import PortfolioAPIView
 from .router import router
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+	path("portfolio/", PortfolioAPIView.as_view(), name="portfolio-api"),
+	path("", include(router.urls)),
+]

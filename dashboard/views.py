@@ -1,10 +1,16 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, View, UpdateView
+from django.views.decorators.http import require_POST
 
 from .forms import ShareModelForm
 from .models import Share
 from django.contrib.auth.mixins import UserPassesTestMixin
+from .portfolio_forms import PortfolioTradeForm
+from .portfolio_service import buy_share, get_portfolio_summary, sell_share
 
 
 class IsUserAuthenticatedMixin(UserPassesTestMixin):
@@ -61,3 +67,56 @@ class ShareDeleteView(IsUserAuthenticatedMixin, DeleteView):
     model = Share
     template_name = "dashboard/delete.html"
     success_url = reverse_lazy("dashboard:index")
+
+
+def _portfolio_context(user, buy_form=None, sell_form=None):
+    context = get_portfolio_summary(user)
+    context["buy_form"] = buy_form or PortfolioTradeForm()
+    context["sell_form"] = sell_form or PortfolioTradeForm()
+    return context
+
+
+@login_required(login_url="user:auth")
+def portfolio_view(request):
+    return render(
+        request,
+        "dashboard/portfolio.html",
+        _portfolio_context(request.user),
+    )
+
+
+def _trade_view(request, trade_function, action):
+    form = PortfolioTradeForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Проверьте введенные данные сделки.")
+        context = _portfolio_context(
+            request.user,
+            buy_form=form if action == "покупка" else None,
+            sell_form=form if action == "продажа" else None,
+        )
+        return render(request, "dashboard/portfolio.html", context, status=400)
+
+    try:
+        trade_function(
+            request.user,
+            form.cleaned_data["share"].pk,
+            form.cleaned_data["quantity"],
+        )
+    except ValidationError as error:
+        for error_message in error.messages:
+            messages.error(request, error_message)
+    else:
+        messages.success(request, f"Операция: {action} успешно выполнена.")
+    return redirect("dashboard:portfolio")
+
+
+@login_required(login_url="user:auth")
+@require_POST
+def portfolio_buy_view(request):
+    return _trade_view(request, buy_share, "покупка")
+
+
+@login_required(login_url="user:auth")
+@require_POST
+def portfolio_sell_view(request):
+    return _trade_view(request, sell_share, "продажа")

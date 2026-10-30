@@ -1,3 +1,7 @@
+from decimal import Decimal
+
+from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -19,3 +23,68 @@ class Share(models.Model):
     class Meta:
         verbose_name = "Акция"
         verbose_name_plural = "Акции"
+
+
+class Portfolio(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="portfolio",
+    )
+    balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("100000.00"),
+    )
+
+    def __str__(self):
+        return f"Портфель пользователя {self.user_id}"
+
+
+class Position(models.Model):
+    portfolio = models.ForeignKey(
+        Portfolio,
+        on_delete=models.CASCADE,
+        related_name="positions",
+    )
+    share = models.ForeignKey(Share, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    average_buy_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("portfolio", "share"),
+                name="unique_portfolio_share_position",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gt=0),
+                name="position_quantity_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.share.ticker}: {self.quantity}"
+
+
+class PortfolioTransaction(models.Model):
+    class Type(models.TextChoices):
+        BUY = "BUY", "Покупка"
+        SELL = "SELL", "Продажа"
+
+    portfolio = models.ForeignKey(
+        Portfolio,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+    )
+    share = models.ForeignKey(Share, on_delete=models.CASCADE)
+    transaction_type = models.CharField(max_length=4, choices=Type.choices)
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.get_transaction_type_display()}: {self.share.ticker} x {self.quantity}"
